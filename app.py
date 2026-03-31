@@ -10,35 +10,31 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 MODEL = "openai/gpt-3.5-turbo"
 
-# Load dataset
+
+# Load data.json
 with open("data.json", "r", encoding="utf-8") as f:
     DATA = json.load(f)
 
 
 def build_prompt(user_text):
-
     principles_text = "\n".join(f"- {p}" for p in DATA["principles"])
     questions_text = "\n".join(f"- {q}" for q in DATA["coaching_questions"])
 
-    style_tone = DATA["style"]["tone"]
-    style_approach = DATA["style"]["approach"]
+    tone = DATA["style"]["tone"]
+    approach = DATA["style"]["approach"]
 
     system_prompt = f"""
-Είσαι AI Life & Business Coach που χρησιμοποιεί ΑΠΟΚΛΕΙΣΤΙΚΑ τη φιλοσοφία της πελάτισσας.
-Ο τόνος σου: {style_tone}
-Η προσέγγισή σου: {style_approach}
+Είσαι AI Life & Business Coach σύμφωνα με το υλικό της πελάτισσας.
+Μιλάς με ύφος: {tone}
+Χρησιμοποιείς προσέγγιση: {approach}
 
 ΑΡΧΕΣ:
 {principles_text}
 
 COACHING ΕΡΩΤΗΣΕΙΣ:
 {questions_text}
-
-Οδηγίες:
-- Μην δίνεις έτοιμες λύσεις
-- Κάνε ανοιχτές ερωτήσεις
-- Μην δίνεις ποτέ διαγνώσεις
 """
+
     return f"{system_prompt}\n\nΕΡΩΤΗΣΗ: {user_text}\nΑΠΑΝΤΗΣΗ:"
 
 
@@ -49,8 +45,8 @@ def ask_ai(prompt):
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://telegram-ai-bot.onrender.com",
-        "X-Title": "TelegramAI-Coach"
+        "HTTP-Referer": "https://my-telegram-coach-bot",   # must exist
+        "X-Title": "My-Telegram-Coach-Bot"                 # must exist
     }
 
     payload = {
@@ -62,10 +58,10 @@ def ask_ai(prompt):
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
-        data = response.json()
+        r = requests.post(url, headers=headers, json=payload, timeout=20)
+        data = r.json()
         return data["choices"][0]["message"]["content"]
-    except Exception:
+    except:
         return "Υπάρχει προσωρινό θέμα σύνδεσης — δοκίμασε ξανά."
 
 
@@ -75,9 +71,9 @@ def webhook():
 
     if "message" in update:
         chat_id = update["message"]["chat"]["id"]
-        user_text = update["message"].get("text", "")
+        text = update["message"].get("text", "")
 
-        prompt = build_prompt(user_text)
+        prompt = build_prompt(text)
         answer = ask_ai(prompt)
 
         send_message(chat_id, answer)
