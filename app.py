@@ -14,20 +14,22 @@ def ask_ai(prompt):
     payload = {"inputs": prompt}
 
     response = requests.post(url, headers=headers, json=payload)
-
     try:
-        return response.json()[0]["generated_text"]
-    except Exception as e:
-        return "Μικρό τεχνικό πρόβλημα — δοκίμασε ξανά!"
+        data = response.json()
+        if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+            return data[0]["generated_text"]
+        else:
+            return "Δεν μπόρεσα να δημιουργήσω απάντηση αυτή τη στιγμή."
+    except:
+        return "Παρουσιάστηκε σφάλμα — δοκίμασε ξανά."
 
 @app.route("/", methods=["POST"])
-def handle_webhook():
+def webhook():
     update = request.get_json()
 
     if "message" in update:
         chat_id = update["message"]["chat"]["id"]
         text = update["message"].get("text", "")
-
         answer = ask_ai(text)
         send_message(chat_id, answer)
 
@@ -40,4 +42,3 @@ def send_message(chat_id, text):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-``
