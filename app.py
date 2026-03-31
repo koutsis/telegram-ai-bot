@@ -6,44 +6,40 @@ from flask import Flask, request
 app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# Δεν χρειάζεται τίποτα άλλο
 
-MODEL = "google/gemma-2b-it"   # Γρήγορο μοντέλο που επιτρέπεται δωρεάν
+# ΔΩΡΕΑΝ proxy μοντέλο – δεν απαιτεί API key
+AI_URL = "https://api.aimlapi.com/v1/chat/completions"
 
-# Load dataset
+MODEL = "gpt-4o-mini"   # FREE MODEL
+
 with open("data.json", "r", encoding="utf-8") as f:
     DATA = json.load(f)
 
 def build_prompt(user_text):
-    principles_text = "\n".join(f"- {p}" for p in DATA["principles"])
-    questions_text = "\n".join(f"- {q}" for q in DATA["coaching_questions"])
+    principles = "\n".join(f"- {p}" for p in DATA["principles"])
+    questions = "\n".join(f"- {q}" for q in DATA["coaching_questions"])
 
     tone = DATA["style"]["tone"]
     approach = DATA["style"]["approach"]
 
-    system_prompt = f"""
-Είσαι AI Life & Business Coach σύμφωνα με το υλικό της πελάτισσας.
+    return f"""
+Είσαι AI Coach με βάση το υλικό της πελάτισσας.
+
 Τόνος: {tone}
 Προσέγγιση: {approach}
 
-ΑΡΧΕΣ:
-{principles_text}
+Αρχές:
+{principles}
 
-COACHING ΕΡΩΤΗΣΕΙΣ:
-{questions_text}
+Ερωτήσεις:
+{questions}
+
+Ερώτηση χρήστη: {user_text}
+Απάντησε μόνον με coaching τρόπο.
 """
-    return f"{system_prompt}\n\nΕΡΩΤΗΣΗ: {user_text}\nΑΠΑΝΤΗΣΗ:"
 
 def ask_ai(prompt):
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "HTTP-Referer": "https://telegram-ai-bot", 
-        "X-Title": "TelegramAI-Bot"
-    }
 
     payload = {
         "model": MODEL,
@@ -54,11 +50,10 @@ def ask_ai(prompt):
     }
 
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=20)
-        data = r.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception:
-        return "Υπάρχει προσωρινό θέμα σύνδεσης — δοκίμασε ξανά."
+        r = requests.post(AI_URL, json=payload, timeout=20)
+        return r.json()["choices"][0]["message"]["content"]
+    except:
+        return "Δεν μπορώ να απαντήσω τώρα – δοκίμασε ξανά."
 
 @app.route("/", methods=["POST"])
 def webhook():
@@ -68,9 +63,7 @@ def webhook():
         chat_id = update["message"]["chat"]["id"]
         text = update["message"].get("text", "")
 
-        prompt = build_prompt(text)
-        answer = ask_ai(prompt)
-
+        answer = ask_ai(build_prompt(text))
         send_message(chat_id, answer)
 
     return "OK"
