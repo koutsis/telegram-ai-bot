@@ -8,13 +8,11 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-MODEL = "openai/gpt-3.5-turbo"
+MODEL = "google/gemma-2b-it"   # Γρήγορο μοντέλο που επιτρέπεται δωρεάν
 
-
-# Load data.json
+# Load dataset
 with open("data.json", "r", encoding="utf-8") as f:
     DATA = json.load(f)
-
 
 def build_prompt(user_text):
     principles_text = "\n".join(f"- {p}" for p in DATA["principles"])
@@ -25,8 +23,8 @@ def build_prompt(user_text):
 
     system_prompt = f"""
 Είσαι AI Life & Business Coach σύμφωνα με το υλικό της πελάτισσας.
-Μιλάς με ύφος: {tone}
-Χρησιμοποιείς προσέγγιση: {approach}
+Τόνος: {tone}
+Προσέγγιση: {approach}
 
 ΑΡΧΕΣ:
 {principles_text}
@@ -34,19 +32,17 @@ def build_prompt(user_text):
 COACHING ΕΡΩΤΗΣΕΙΣ:
 {questions_text}
 """
-
     return f"{system_prompt}\n\nΕΡΩΤΗΣΗ: {user_text}\nΑΠΑΝΤΗΣΗ:"
 
-
 def ask_ai(prompt):
-
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://my-telegram-coach-bot",   # must exist
-        "X-Title": "My-Telegram-Coach-Bot"                 # must exist
+        "Accept": "application/json",
+        "HTTP-Referer": "https://telegram-ai-bot", 
+        "X-Title": "TelegramAI-Bot"
     }
 
     payload = {
@@ -61,9 +57,8 @@ def ask_ai(prompt):
         r = requests.post(url, headers=headers, json=payload, timeout=20)
         data = r.json()
         return data["choices"][0]["message"]["content"]
-    except:
+    except Exception:
         return "Υπάρχει προσωρινό θέμα σύνδεσης — δοκίμασε ξανά."
-
 
 @app.route("/", methods=["POST"])
 def webhook():
@@ -80,11 +75,9 @@ def webhook():
 
     return "OK"
 
-
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
