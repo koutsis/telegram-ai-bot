@@ -8,7 +8,6 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# Μοντέλο OpenRouter — σταθερό και γρήγορο
 MODEL = "openai/gpt-3.5-turbo"
 
 # Load dataset
@@ -25,46 +24,48 @@ def build_prompt(user_text):
     style_approach = DATA["style"]["approach"]
 
     system_prompt = f"""
-Είσαι AI Life & Business Coach που ακολουθεί το ύφος της πελάτισσας:
-- Ζεστός, ενσυναίσθητος τόνος
-- Δεν δίνεις έτοιμες λύσεις
-- Κάνεις coaching ερωτήσεις
+Είσαι AI Life & Business Coach που χρησιμοποιεί ΑΠΟΚΛΕΙΣΤΙΚΑ τη φιλοσοφία της πελάτισσας.
+Ο τόνος σου: {style_tone}
+Η προσέγγισή σου: {style_approach}
 
 ΑΡΧΕΣ:
 {principles_text}
 
-ΕΡΩΤΗΣΕΙΣ:
+COACHING ΕΡΩΤΗΣΕΙΣ:
 {questions_text}
 
 Οδηγίες:
-- Μην κάνεις διαγνώσεις
-- Βοήθα τον χρήστη να δει καθαρά
+- Μην δίνεις έτοιμες λύσεις
+- Κάνε ανοιχτές ερωτήσεις
+- Μην δίνεις ποτέ διαγνώσεις
 """
-
     return f"{system_prompt}\n\nΕΡΩΤΗΣΗ: {user_text}\nΑΠΑΝΤΗΣΗ:"
 
 
 def ask_ai(prompt):
+
     url = "https://openrouter.ai/api/v1/chat/completions"
-    
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://telegram-ai-bot.onrender.com",
+        "X-Title": "TelegramAI-Coach"
     }
 
     payload = {
         "model": MODEL,
         "messages": [
-            {"role": "system", "content": "Σε λένε CoachingAssistant."},
+            {"role": "system", "content": "Είσαι CoachingAssistant."},
             {"role": "user", "content": prompt}
         ]
     }
 
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=20)
-        data = r.json()
+        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        data = response.json()
         return data["choices"][0]["message"]["content"]
-    except:
+    except Exception:
         return "Υπάρχει προσωρινό θέμα σύνδεσης — δοκίμασε ξανά."
 
 
@@ -74,9 +75,9 @@ def webhook():
 
     if "message" in update:
         chat_id = update["message"]["chat"]["id"]
-        text = update["message"].get("text", "")
+        user_text = update["message"].get("text", "")
 
-        prompt = build_prompt(text)
+        prompt = build_prompt(user_text)
         answer = ask_ai(prompt)
 
         send_message(chat_id, answer)
